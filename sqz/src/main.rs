@@ -1543,6 +1543,54 @@ fn resolve_project_filter(raw: &str) -> String {
     path.to_string_lossy().to_string()
 }
 
+// ── Terminal color helpers ─────────────────────────────────────────────────
+
+mod colors {
+    pub const RESET: &str = "\x1b[0m";
+    pub const BOLD: &str = "\x1b[1m";
+    pub const DIM: &str = "\x1b[2m";
+    pub const CYAN: &str = "\x1b[36m";
+    pub const GREEN: &str = "\x1b[32m";
+    pub const BRIGHT_GREEN: &str = "\x1b[92m";
+    pub const YELLOW: &str = "\x1b[33m";
+    pub const MAGENTA: &str = "\x1b[35m";
+    pub const BLUE: &str = "\x1b[34m";
+    pub const WHITE: &str = "\x1b[97m";
+
+    /// Returns true if color output is appropriate (TTY + no NO_COLOR).
+    pub fn enabled() -> bool {
+        if std::env::var("NO_COLOR").is_ok() {
+            return false;
+        }
+        #[cfg(unix)]
+        {
+            unsafe { libc::isatty(libc::STDOUT_FILENO) != 0 }
+        }
+        #[cfg(not(unix))]
+        {
+            true
+        }
+    }
+
+    /// Wrap text in color codes if color is enabled.
+    pub fn paint(color: &str, text: &str) -> String {
+        if enabled() {
+            format!("{color}{text}{RESET}")
+        } else {
+            text.to_string()
+        }
+    }
+
+    pub fn bold(text: &str) -> String { paint(BOLD, text) }
+    pub fn cyan(text: &str) -> String { paint(CYAN, text) }
+    pub fn green(text: &str) -> String { paint(GREEN, text) }
+    pub fn bright_green(text: &str) -> String { paint(BRIGHT_GREEN, text) }
+    pub fn yellow(text: &str) -> String { paint(YELLOW, text) }
+    pub fn magenta(text: &str) -> String { paint(MAGENTA, text) }
+    pub fn dim(text: &str) -> String { paint(DIM, text) }
+    pub fn blue(text: &str) -> String { paint(BLUE, text) }
+}
+
 /// `sqz stats [session-id]` — full compression stats report.
 fn cmd_stats(session_id: Option<String>, project: Option<String>, breakdown: bool, json: bool) {
     let engine = require_engine();
@@ -1577,19 +1625,29 @@ fn cmd_stats(session_id: Option<String>, project: Option<String>, breakdown: boo
     if project.as_deref() == Some("list") {
         let projects = engine.session_store().list_projects().unwrap_or_default();
         if projects.is_empty() {
-            println!("[sqz] No per-project data yet. Compression events from older sqz versions don't have project info.");
-            println!("[sqz] New compressions will be tagged automatically.");
+            println!("{}", colors::yellow("[sqz] No per-project data yet. New compressions will be tagged automatically."));
             return;
         }
         println!();
-        println!("  Tracked projects:");
-        println!("  {}", "─".repeat(60));
+        println!("  {}", colors::bold(&colors::cyan("📂 Tracked Projects")));
+        println!("  {}", colors::dim(&"─".repeat(65)));
         for (dir, count, saved) in &projects {
-            println!("  {:>6} compressions  {:>8} saved  {}", count, saved, dir);
+            let short = std::path::Path::new(dir)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| dir.to_string());
+            println!(
+                "  {} {:>5} calls  {} {:>7} saved  {}",
+                colors::dim("●"),
+                colors::bold(&format!("{}", count)),
+                colors::green("↓"),
+                colors::bright_green(&format!("{}", saved)),
+                colors::magenta(&short),
+            );
         }
-        println!("  {}", "─".repeat(60));
+        println!("  {}", colors::dim(&"─".repeat(65)));
         println!();
-        println!("  Use: sqz stats --project <path>");
+        println!("  {} sqz stats --project <path>", colors::dim("Use:"));
         println!("       sqz gain --project <path>");
         println!();
         return;
@@ -1597,16 +1655,7 @@ fn cmd_stats(session_id: Option<String>, project: Option<String>, breakdown: boo
 
     let project_dir = project.as_deref().map(resolve_project_filter);
 
-    // Table drawing helpers
-    let bar = "├─────────────────────────┼──────────────────┤";
-    let top = "┌─────────────────────────┬──────────────────┐";
-    let bot = "└─────────────────────────┴──────────────────┘";
-    let row = |label: &str, val: &str| {
-        println!("│ {:<23} │ {:>16} │", label, val);
-    };
-
     let title = if let Some(ref dir) = project_dir {
-        // Shorten to last path component for display
         let short = std::path::Path::new(dir)
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -1616,47 +1665,56 @@ fn cmd_stats(session_id: Option<String>, project: Option<String>, breakdown: boo
         "sqz compression stats".to_string()
     };
 
-    println!();
-    println!("{top}");
-    println!("│ {:^42} │", title);
-    println!("{bar}");
-
     // Cumulative compression stats (filtered or global)
     let cs = if let Some(ref dir) = project_dir {
         engine.session_store().compression_stats_for_project(dir).unwrap_or_default()
     } else {
         engine.session_store().compression_stats().unwrap_or_default()
     };
-    row("Total compressions", &format!("{}", cs.total_compressions));
-    row("Tokens in (total)", &format!("{}", cs.total_tokens_in));
-    row("Tokens out (total)", &format!("{}", cs.total_tokens_out));
-    row("Tokens saved", &format!("{}", cs.tokens_saved()));
-    row("Avg reduction", &format!("{:.1}%", cs.reduction_pct()));
+
+    println!();
+    println!("  {}", colors::bold(&colors::cyan(&format!("📊 {}", title))));
+    println!("  {}", colors::dim(&"─".repeat(50)));
+    println!();
+
+    // Big number: tokens saved
+    let saved_str = format!("{}", cs.tokens_saved());
+    println!("  {}  {}", colors::bright_green(&saved_str), colors::bold("tokens saved"));
+    println!("  {}  {:.1}% average reduction", colors::green("↓"), cs.reduction_pct());
+    println!();
+
+    // Stats table
+    println!("  {:<22} {}", colors::dim("Compressions"), colors::bold(&format!("{}", cs.total_compressions)));
+    println!("  {:<22} {}", colors::dim("Tokens in"), format!("{}", cs.total_tokens_in));
+    println!("  {:<22} {}", colors::dim("Tokens out"), format!("{}", cs.total_tokens_out));
+    println!("  {:<22} {}", colors::dim("Tokens saved"), colors::green(&format!("{}", cs.tokens_saved())));
+    println!("  {:<22} {}", colors::dim("Avg reduction"), colors::bright_green(&format!("{:.1}%", cs.reduction_pct())));
 
     if let Some(ref dir) = project_dir {
-        println!("{bar}");
-        row("Project", dir);
+        println!("  {:<22} {}", colors::dim("Project"), colors::magenta(dir));
     }
 
     // Session cost section (if session_id provided)
     if let Some(ref sid) = session_id {
         match engine.cost_summary(sid) {
             Ok(cost) => {
-                println!("{bar}");
-                row("Session", sid);
-                row("Total tokens", &format!("{}", cost.total_tokens));
-                row("Total cost", &format!("${:.6}", cost.total_usd));
-                row("Cache savings", &format!("${:.6}", cost.cache_savings_usd));
-                row("Compression savings", &format!("${:.6}", cost.compression_savings_usd));
+                println!();
+                println!("  {}", colors::bold(&colors::cyan("💰 Session Cost")));
+                println!("  {}", colors::dim(&"─".repeat(50)));
+                println!("  {:<22} {}", colors::dim("Session"), colors::magenta(sid));
+                println!("  {:<22} {}", colors::dim("Total tokens"), format!("{}", cost.total_tokens));
+                println!("  {:<22} {}", colors::dim("Total cost"), colors::yellow(&format!("${:.6}", cost.total_usd)));
+                println!("  {:<22} {}", colors::dim("Cache savings"), colors::green(&format!("${:.6}", cost.cache_savings_usd)));
+                println!("  {:<22} {}", colors::dim("Compression savings"), colors::green(&format!("${:.6}", cost.compression_savings_usd)));
                 if cost.total_usd > 0.0 {
                     let pct = (cost.compression_savings_usd / (cost.total_usd + cost.compression_savings_usd)) * 100.0;
-                    row("Effective reduction", &format!("{:.1}%", pct));
+                    println!("  {:<22} {}", colors::dim("Effective reduction"), colors::bright_green(&format!("{:.1}%", pct)));
                 }
             }
             Err(e) => {
-                println!("{bar}");
-                row("Session", sid);
-                row("Error", &format!("{e}"));
+                println!();
+                println!("  {:<22} {}", colors::dim("Session"), sid);
+                println!("  {:<22} {}", colors::dim("Error"), format!("{e}"));
             }
         }
     }
@@ -1667,12 +1725,12 @@ fn cmd_stats(session_id: Option<String>, project: Option<String>, breakdown: boo
             .list_cache_entries_lru()
             .unwrap_or_default();
         let cache_size: u64 = cache_entries.iter().map(|(_, sz)| sz).sum();
-        println!("{bar}");
-        row("Cache entries", &format!("{}", cache_entries.len()));
-        row("Cache size", &format_bytes(cache_size));
+        println!();
+        println!("  {}", colors::bold(&colors::cyan("🗄️  Cache")));
+        println!("  {}", colors::dim(&"─".repeat(50)));
+        println!("  {:<22} {}", colors::dim("Entries"), format!("{}", cache_entries.len()));
+        println!("  {:<22} {}", colors::dim("Size"), format_bytes(cache_size));
     }
-
-    println!("{bot}");
 
     // Per-command breakdown
     if breakdown {
@@ -1684,24 +1742,48 @@ fn cmd_stats(session_id: Option<String>, project: Option<String>, breakdown: boo
 
         if !cmds.is_empty() {
             println!();
-            println!("  Top token consumers:");
-            println!("  {}", "─".repeat(70));
+            println!("  {}", colors::bold(&colors::cyan("🔍 Top Token Consumers")));
+            println!("  {}", colors::dim(&"─".repeat(70)));
             println!(
-                "  {:<16} {:>6} {:>10} {:>10} {:>8}",
-                "command", "calls", "tokens in", "tokens out", "saved"
+                "  {:<20} {:>6} {:>10} {:>10} {:>8}",
+                "command", "calls", "tokens in", "out", "saved"
             );
-            println!("  {}", "─".repeat(70));
+            println!("  {}", colors::dim(&"─".repeat(70)));
             for c in &cmds {
+                let pct = c.reduction_pct();
+                let pct_str = format!("{:.0}%", pct);
+                let pct_colored = if pct > 70.0 {
+                    colors::bright_green(&pct_str)
+                } else if pct > 30.0 {
+                    colors::green(&pct_str)
+                } else if pct > 0.0 {
+                    colors::yellow(&pct_str)
+                } else {
+                    colors::dim(&pct_str)
+                };
+
+                // Truncate command name to 18 visible chars
+                let cmd_display = if c.command.len() > 18 {
+                    format!("{}…", &c.command[..17])
+                } else {
+                    c.command.clone()
+                };
+                let cmd_colored = colors::magenta(&cmd_display);
+                // Pad to 20 visible chars (accounting for ANSI codes)
+                let visible_len = cmd_display.len();
+                let pad_needed = if visible_len < 20 { 20 - visible_len } else { 0 };
+                let padded_cmd = format!("{}{}", cmd_colored, " ".repeat(pad_needed));
+
                 println!(
-                    "  {:<16} {:>6} {:>10} {:>10} {:>7.0}%",
-                    c.command,
+                    "  {} {:>6} {:>10} {:>10} {:>8}",
+                    padded_cmd,
                     c.invocations,
                     c.tokens_in,
                     c.tokens_out,
-                    c.reduction_pct(),
+                    pct_colored,
                 );
             }
-            println!("  {}", "─".repeat(70));
+            println!("  {}", colors::dim(&"─".repeat(70)));
         }
     }
 
@@ -1726,9 +1808,9 @@ fn cmd_gain(days: u32, project: Option<String>) {
 
     if gains.is_empty() {
         if project_dir.is_some() {
-            println!("[sqz] No compression data for this project yet.");
+            println!("{}", colors::yellow("[sqz] No compression data for this project yet."));
         } else {
-            println!("[sqz] No compression data yet. Run `sqz compress` to start tracking.");
+            println!("{}", colors::yellow("[sqz] No compression data yet. Run `sqz compress` to start tracking."));
         }
         return;
     }
@@ -1741,34 +1823,60 @@ fn cmd_gain(days: u32, project: Option<String>) {
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| dir.clone());
-        format!("sqz token savings — {} (last {} days)", short, days)
+        format!("📈 Token Savings — {} (last {} days)", short, days)
     } else {
-        format!("sqz token savings (last {} days)", days)
+        format!("📈 Token Savings (last {} days)", days)
     };
 
     println!();
-    println!("  {}", header);
-    println!("  {}", "─".repeat(50));
+    println!("  {}", colors::bold(&colors::cyan(&header)));
+    println!("  {}", colors::dim(&"─".repeat(55)));
 
     for g in &gains {
         let bar_len = (g.tokens_saved * bar_width / max_saved) as usize;
-        let bar: String = "█".repeat(bar_len);
+        let bar_str: String = "█".repeat(bar_len);
         let pad: String = " ".repeat(bar_width as usize - bar_len);
+
+        // Color the bar based on savings intensity
+        let colored_bar = if bar_len > 20 {
+            colors::bright_green(&bar_str)
+        } else if bar_len > 10 {
+            colors::green(&bar_str)
+        } else if bar_len > 0 {
+            colors::blue(&bar_str)
+        } else {
+            colors::dim(&bar_str)
+        };
+
+        let saved_str = if g.tokens_saved > 10000 {
+            colors::bright_green(&format!("{:>6}", g.tokens_saved))
+        } else if g.tokens_saved > 1000 {
+            colors::green(&format!("{:>6}", g.tokens_saved))
+        } else {
+            format!("{:>6}", g.tokens_saved)
+        };
+
         println!(
             "  {} │{}{}│ {} saved",
-            &g.date[5..], // MM-DD
-            bar,
+            colors::dim(&g.date[5..].to_string()),
+            colored_bar,
             pad,
-            g.tokens_saved,
+            saved_str,
         );
     }
 
-    println!("  {}", "─".repeat(50));
+    println!("  {}", colors::dim(&"─".repeat(55)));
+
+    // Summary line
+    let total_saved = colors::bright_green(&format!("{}", stats.tokens_saved()));
+    let total_compressions = colors::bold(&format!("{}", stats.total_compressions));
+    let reduction = colors::green(&format!("{:.1}%", stats.reduction_pct()));
     println!(
-        "  Total: {} compressions, {} tokens saved ({:.1}% avg reduction)",
-        stats.total_compressions,
-        stats.tokens_saved(),
-        stats.reduction_pct(),
+        "  {} {} compressions, {} tokens saved ({} avg)",
+        colors::dim("Total:"),
+        total_compressions,
+        total_saved,
+        reduction,
     );
     println!();
 }
