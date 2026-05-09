@@ -5,6 +5,33 @@ All notable changes to sqz will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-05-09
+
+### Added
+
+- **`sqz vizit`** — live terminal dashboard showing real-time compression
+  stats, cache hits, and session activity in a TUI interface.
+- **Colorful terminal output** — `sqz stats` and `sqz gain` now use colored
+  output with progress bars and visual indicators.
+- **Per-command breakdown** — stats now show compression savings broken down
+  by command type (git, cargo, npm, etc.).
+- **Adaptive compression pressure** — automatically adjusts aggressiveness
+  based on observed savings patterns.
+- **Homebrew tap** — `brew install ojuschugh1/tap/sqz` now works. CI
+  dispatches to the homebrew-sqz tap on release.
+- **Featured badge** — linking to NextGen Tech Insider article.
+
+### Fixed
+
+- **VS Code extension wired to real stats** (issue #12) — the extension
+  now reads from the actual sqz session store instead of showing zeros.
+- **npm auto-publish on release** — the publish workflow now triggers
+  correctly and binary wrappers are improved.
+
+### Changed
+
+- README: Added cargo install instructions for both `sqz-cli` and `sqz-mcp`.
+
 ## [1.0.9] — 2026-04-23
 
 ### Fixed
