@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 21f74f0436217754ca5b85f5515a037035c06a61d3803bc457d32194ecfb8126 # shrinks to row = AgentRow { agent_name: "A", project_display: "a", project_dir: "A", tokens_saved_today: 0, tokens_saved_total: 0, compression_ratio: 0.0, last_activity: 2026-05-05T06:31:41.818569Z, compressions_today: 0 }, cols = 40

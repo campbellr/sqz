@@ -1,0 +1,15 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 3514b717af2e5d040a27a6144e36468f62ff03b889ff878e6a950f0c63995d22 # shrinks to content = "vxbjy   a gcacmv  fg k g  p sgp q vs hs  u    iee  z   t hrrh tg seu bs   d c  j   dlk l cxv   fjyko j "
+cc 444f1bccc48013973f9c344598dfe5aa647ebd1604dcfd9749314b50a2255e87 # shrinks to content = " kn f b  joyop   v  nkihl s mcuc d"
+cc 4b9ae81be92bd30fc4201be9edf8984b9bfea9aff5e081faba9310f5661d62b4 # shrinks to content = "olhg i  a yjspwj c u pm    pwm kfv swjrr e  v x kh   bomp   bccie wwsv c kh        ye y s lmr ojy ozfwy twv t owo  tmtjbf    zypc   h  oo bgo d  k oapzez jm   yqf xc  rn   e gsyrk "
+cc 999fe0ddebb3138813ba3a74fdb3cd1dd7e0e87dbe503f0c295b99fb69b18a71 # shrinks to content = "ip  wxo ii zp    f         b mr  l zxdcy  ycvk   gy y cthp mg   awa    w wwhqoofgg  mjjobr bks cdvojr     te s kov t y rzhugl lsu e   a u   k na c kd qzjrf  ih o s p"
+cc 3007ce71da0c2c9554e2e6bfa71d5ebe9ecc8f8d74b3c0dfa8bbe9bb74093e48 # shrinks to content = "dehto   c  ggn dqz wfd a k q m dqh oxk    fr pjl j n r m ijpq ghi afp       jn   j   r i  d  iar s   k  j  q lvwwqig  m  vi b oe qa       eu   k  l cqldue jhi   mug gvbb p  wbp opgb a     i"
+cc ef43046aedd4e7bd8100f780f63f47f9337b16fcbc0fa8f176256fb156014aba # shrinks to content = " i    iz so gtdu b a tt   o  f p  hznm  kz   za  rk a     t     k j   d e nk"
+cc f3d7446a786ab16e2ce4c7fc4fa32f76bcdee796a1591de6f8ddf9a26f37f94d # shrinks to content = "hm  bm  ocpe  weo   f   ll    zf  ql lx     smef c m  un lmh   oja o  p  q    j  r ezzh f zs cfmw  tgx  zfj h "
+cc 359dd19f96253613a43b8d79fe78352ada6fe97f2537a83e04b9010f9bc2dd6a # shrinks to content = "pi o ok f    r u pwik nj d  f   v yv  "
+cc 3fd518f70d80f3c690227d96cee330773b4602d766c81772423f50e8a78e5ede # shrinks to content = "   fcpr xh o  y t nx f ro yprqiy b   xfhc   ke mk h     k wv j  f y rpfyojbpg  q  lg hfek      j dt  yoh yolyfvm     v  "
