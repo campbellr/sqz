@@ -219,6 +219,10 @@ That's it. Shell hooks installed, AI tool hooks configured.
 
 ## How It Works
 
+<p align="center">
+  <img src="assets/sqz-architecture.png" alt="sqz system architecture" width="700" />
+</p>
+
 sqz installs a PreToolUse hook that intercepts bash commands before your AI tool runs them. The output gets compressed transparently — the AI tool never knows.
 
 ```
@@ -408,6 +412,7 @@ cargo build --release
 
 ## Links
 
+- [White Paper: Pre-Injection Context Compression](docs/whitepaper.md)
 - [Benchmark: sqz vs rtk](docs/benchmark-vs-rtk.md)
 - [Discord](https://discord.gg/j8EEyH5dSB)
 - [Changelog](CHANGELOG.md)
