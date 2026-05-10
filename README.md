@@ -256,18 +256,27 @@ What doesn't get compressed:
 ```sh
 sqz init --global             # Install hooks for every project on this machine
 sqz init                      # Install hooks for just this project
+sqz init --only kiro          # Only configure Kiro (skip the rest)
 sqz init --only opencode      # Only configure OpenCode (skip the rest)
 sqz init --skip cursor        # Configure every agent except Cursor
 sqz compress <text>           # Compress (or pipe from stdin)
 sqz compress --no-cache       # Compress without dedup (always full output)
 sqz expand <ref>              # Recover original content from a §ref:HASH§ token
 sqz compact                   # Evict stale context to free tokens
-sqz gain                      # Show daily token savings
-sqz stats                     # Cumulative report
+sqz gain                      # Show daily token savings (bar chart)
+sqz gain --project .          # Per-project daily gains
+sqz gain --days 30            # Last 30 days
+sqz stats                     # Cumulative compression report
+sqz stats --breakdown         # Per-command token usage breakdown
+sqz stats --project .         # Stats for current project only
+sqz stats --project list      # List all tracked projects
 sqz discover                  # Find missed savings
 sqz resume                    # Re-inject session context after compaction
-sqz hook claude               # Process a PreToolUse hook
-sqz proxy --port 8080 # API proxy (compresses full request payloads)
+sqz vizit                     # Live terminal dashboard (like htop for AI agents)
+sqz hook claude               # Process a PreToolUse hook (Claude Code)
+sqz hook kiro                 # Process a PreToolUse hook (Kiro)
+sqz print-opencode-plugin     # Print OpenCode plugin TS for manual install
+sqz proxy --port 8080         # API proxy (compresses full request payloads)
 ```
 
 ### Dedup Escape Hatch
@@ -299,15 +308,51 @@ for the full cumulative report:
 
 ```sh
 $ sqz stats
-┌─────────────────────────┬──────────────────┐
-│           sqz compression stats            │
-├─────────────────────────┼──────────────────┤
-│ Total compressions      │            3,003 │
-│ Tokens saved            │          178,442 │
-│ Avg reduction           │            24.7% │
-│ Cache entries           │               43 │
-│ Cache size              │          39.1 KB │
-└─────────────────────────┴──────────────────┘
+  📊 sqz compression stats
+  ──────────────────────────────────────────────────
+
+  178,442  tokens saved
+  ↓  24.7% average reduction
+
+  Compressions           3,003
+  Tokens in              721,840
+  Tokens out             543,398
+  Tokens saved           178,442
+  Avg reduction          24.7%
+
+  🗄️  Cache
+  ──────────────────────────────────────────────────
+  Entries                43
+  Size                   39.1 KB
+```
+
+Add `--breakdown` to see exactly which commands consume the most tokens:
+
+```sh
+$ sqz stats --breakdown
+
+  🔍 Top Token Consumers
+  ──────────────────────────────────────────────────────────────────────
+  command               calls  tokens in        out    saved
+  ──────────────────────────────────────────────────────────────────────
+  dedup                   249      45541       3237      93%
+  stdin                    51      30851      24289      21%
+  auto                    132      18288       7740      58%
+  echo                     17       1050        558      47%
+  ls -la                    8        948        948       0%
+  cargo build               7        170        145      15%
+  git status                4         56          8      86%
+  ──────────────────────────────────────────────────────────────────────
+```
+
+**Per-project filtering:**
+
+```sh
+sqz stats --project .           # stats for current project only
+sqz stats --project list        # list all tracked projects
+sqz gain --project .            # daily gains for current project
+sqz gain --days 30              # last 30 days instead of 7
+sqz gain --days 30 --project .  # combine both
 ```
 
 Stats are stored locally in SQLite under `~/.sqz/sessions.db` — nothing leaves your machine.
