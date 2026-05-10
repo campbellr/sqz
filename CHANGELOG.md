@@ -5,6 +5,21 @@ All notable changes to sqz will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-05-10
+
+### Added
+
+- **Kiro IDE and CLI integration** — `sqz init` now configures Kiro with
+  PreToolUse hooks and MCP server registration. Supports both Kiro IDE
+  (`.kiro/settings/mcp.json`) and Kiro CLI hook format.
+- **Proptest regression seeds** — added seeds for vizit and api_proxy to
+  prevent flaky test regressions.
+
+### Changed
+
+- README: Updated stats output examples and CLI commands section.
+- CLAUDE.md added to `.gitignore` (generated per-project, not committed).
+
 ## [1.1.0] — 2026-05-09
 
 ### Added
