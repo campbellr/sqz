@@ -137,6 +137,30 @@ const SqzPluginFactory = async (ctx: any) => {{
     return "'" + s.replace(/'/g, "'\\''") + "'";
   }}
 
+  // Detect shell operators that make naive ` 2>&1 | sqz compress`
+  // appending unsafe. The worst case is a trailing heredoc: appending
+  // the pipe to a command like `git commit -F- <<'EOF' ... EOF`
+  // concatenates onto the `EOF` line, so the shell no longer sees the
+  // terminator and the heredoc swallows the pipe text -- the commit
+  // message ends up containing `EOF 2>&1 | sqz compress --cmd git`.
+  // Compound commands (`&&`, `||`, `;`), existing pipes/redirects,
+  // backgrounding, and command substitution all break similarly: the
+  // pipe only captures the tail of the chain, not the whole logical
+  // command. Mirrors `has_shell_operators` in tool_hooks.rs (Claude
+  // Code path).
+  function hasShellOperators(cmd: string): boolean {{
+    if (cmd.includes("&&")) return true;
+    if (cmd.includes("||")) return true;
+    if (cmd.includes(";")) return true;
+    if (cmd.includes(">")) return true;
+    if (cmd.includes("<")) return true;
+    if (cmd.includes("|")) return true; // existing pipe
+    if (cmd.includes("&") && !cmd.includes("&&")) return true; // background
+    if (cmd.includes("$(")) return true; // command substitution
+    if (cmd.includes("`")) return true;  // backtick substitution
+    return false;
+  }}
+
   return {{
     "tool.execute.before": async (input: any, output: any) => {{
       const tool = input.tool ?? "";
@@ -144,6 +168,7 @@ const SqzPluginFactory = async (ctx: any) => {{
 
       const cmd = output.args?.command ?? "";
       if (!cmd || isAlreadyWrapped(cmd) || isInteractive(cmd)) return;
+      if (hasShellOperators(cmd)) return;
 
       // Rewrite: pipe through `sqz compress --cmd <base>`.
       //
@@ -836,6 +861,18 @@ pub fn process_opencode_hook(input: &str) -> Result<String> {
         return Ok(input.to_string());
     }
 
+    // Skip commands containing shell operators (heredocs, pipes, redirects,
+    // compound commands). Appending ` 2>&1 | sqz compress` to such a
+    // command corrupts it -- most importantly, a trailing heredoc
+    // terminator gets concatenated with the pipe (e.g.
+    // `git commit -F- <<'EOF' ... EOF 2>&1 | sqz compress --cmd git`),
+    // which the shell no longer recognizes as a terminator, so the
+    // heredoc swallows the pipe text as part of its content. Mirrors the
+    // same guard the Claude Code path uses (tool_hooks.rs).
+    if crate::tool_hooks::has_shell_operators(command) {
+        return Ok(input.to_string());
+    }
+
     // Determine the base command name. Skip leading VAR=VALUE assignments
     // so an operator-prefixed command like `FOO=bar make test` still picks
     // `make` as the base instead of `FOO=bar`.
@@ -934,6 +971,24 @@ mod tests {
         assert!(content.contains("isInteractive"));
         assert!(content.contains("vim"));
         assert!(content.contains("--watch"));
+    }
+
+    /// Heredocs (and other shell operators) must not be rewritten. The
+    /// agent-side failure mode looks like a corrupted commit message
+    /// containing `EOF 2>&1 | sqz compress --cmd git` because the
+    /// appended pipe lands on the heredoc terminator line. The guard
+    /// mirrors `has_shell_operators` in tool_hooks.rs.
+    #[test]
+    fn test_generate_opencode_plugin_has_shell_operator_check() {
+        let content = generate_opencode_plugin("sqz");
+        assert!(
+            content.contains("hasShellOperators"),
+            "generated plugin must define hasShellOperators"
+        );
+        assert!(
+            content.contains("if (hasShellOperators(cmd)) return;"),
+            "generated plugin must guard the rewrite on hasShellOperators"
+        );
     }
 
     /// Issue #10 follow-up (@itguy327 comment): OpenCode's plugin UI
@@ -1039,6 +1094,43 @@ mod tests {
         let input = r#"{"tool":"bash","args":{"command":"vim file.txt"}}"#;
         let result = process_opencode_hook(input).unwrap();
         assert_eq!(result, input, "interactive commands should pass through");
+    }
+
+    /// Regression: appending ` 2>&1 | sqz compress --cmd git` to a
+    /// command ending in a heredoc terminator (`EOF`) puts the pipe on
+    /// the same line as the terminator, breaking the heredoc. The shell
+    /// then treats the literal `EOF` as part of the heredoc content and
+    /// the appended `2>&1 | sqz compress ...` becomes part of the
+    /// commit message. Skip rewrite for any command containing `<<`.
+    #[test]
+    fn test_process_opencode_hook_skips_heredoc() {
+        let input = r#"{"tool":"bash","args":{"command":"git commit -F- <<'EOF'\nfeat: x\nEOF"}}"#;
+        let result = process_opencode_hook(input).unwrap();
+        assert_eq!(
+            result, input,
+            "heredoc commands must pass through unrewritten"
+        );
+    }
+
+    /// Any shell operator (`&&`, `|`, `>`, `;`, etc.) means a naive pipe
+    /// append captures only the tail of the chain. Skip the rewrite
+    /// entirely -- same guard the Claude Code path uses.
+    #[test]
+    fn test_process_opencode_hook_skips_shell_operators() {
+        for cmd in [
+            "ls && echo done",
+            "cat file | head",
+            "make build > log.txt",
+            "true; false",
+        ] {
+            let input =
+                format!(r#"{{"tool":"bash","args":{{"command":"{cmd}"}}}}"#);
+            let result = process_opencode_hook(&input).unwrap();
+            assert_eq!(
+                result, input,
+                "command with shell operator must pass through: {cmd}"
+            );
+        }
     }
 
     #[test]

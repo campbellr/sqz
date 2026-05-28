@@ -1447,7 +1447,7 @@ fn shell_escape(s: &str) -> String {
 /// Check if a command contains shell operators that would break piping.
 /// Commands with these operators are passed through uncompressed rather
 /// than risk incorrect behavior.
-fn has_shell_operators(cmd: &str) -> bool {
+pub(crate) fn has_shell_operators(cmd: &str) -> bool {
     // Check for operators that would cause the pipe to only capture
     // the last command in a chain
     cmd.contains("&&")
